@@ -1,8 +1,19 @@
-from typing import Dict, Any
+from typing import Dict, Any, TYPE_CHECKING
 
-import tableshift.core
-from tableshift import get_iid_dataset
-from tableshift.exceptions import ConfigNotFoundException
+try:
+    import tableshift.core
+    from tableshift import get_iid_dataset
+    from tableshift.exceptions import ConfigNotFoundException
+
+    _TABLESHIFT_AVAILABLE = True
+except ImportError:
+    # tableshift is optional; only required when using built-in dataset fetching.
+    tableshift = None
+    ConfigNotFoundException = Exception  # type: ignore
+    _TABLESHIFT_AVAILABLE = False
+
+if TYPE_CHECKING:
+    import tableshift.core
 
 from rtfm.datasets.configs import AutoConfig, fetch_dataset_with_default_configs
 from rtfm.datasets.configs import (
@@ -15,7 +26,12 @@ def get_task_dataset(
     preprocessor_config=None,
     initialize_data=True,
     tabular_dataset_kwargs: Dict[str, Any] = None,
-) -> tableshift.core.tabular_dataset.Dataset:
+) -> "tableshift.core.tabular_dataset.Dataset":
+    if not _TABLESHIFT_AVAILABLE:
+        raise ImportError(
+            "tableshift is not installed. Install tableshift to use get_task_dataset, "
+            "or set use_preserialized=True to train on pre-sharded data."
+        )
     if tabular_dataset_kwargs is None:
         tabular_dataset_kwargs = {}
     try:

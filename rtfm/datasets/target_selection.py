@@ -2,15 +2,23 @@ from collections import defaultdict
 import logging
 import re
 from abc import ABC, abstractmethod
-from dataclasses import dataclass
-from typing import Sequence, Tuple, Union, Callable, Any, Literal, Callable
+from dataclasses import dataclass, field
+from typing import Sequence, Tuple, Union, Callable, Any, Literal, Callable, Optional
 
 from xgboost import XGBClassifier
 import numpy as np
 import pandas as pd
 from rtfm.configs import TargetConfig
 from rtfm.datasets.data_utils import is_date_column, make_object_json_serializable
-from tabliblib.summarizers import SingleColumnSummarizer
+
+try:
+    from tabliblib.summarizers import SingleColumnSummarizer
+
+    _TABLIBLIB_AVAILABLE = True
+except Exception:
+    # Catch any failure (including ImportError or bad dataclass defaults inside tabliblib)
+    SingleColumnSummarizer = None  # type: ignore
+    _TABLIBLIB_AVAILABLE = False
 
 # Dummy logging statement to make sure linter doesn't remove logging module import.
 logging.info("")
@@ -170,11 +178,17 @@ class ModelBasedTargetSelector(TargetSelector):
     """Target selector that uses a model to select candidate columns."""
 
     clf = None
-    summarizer: SingleColumnSummarizer = SingleColumnSummarizer(
-        agg_fns={}, agg_quantiles=[], include_table_summary_metrics=False
-    )
+    summarizer: Optional[Any] = field(default=None)
 
     def __post_init__(self):
+        if not _TABLIBLIB_AVAILABLE:
+            raise ImportError(
+                "tabliblib is not installed. Install tabliblib to use ModelBasedTargetSelector "
+                "or switch to T4TargetSelector."
+            )
+        self.summarizer = SingleColumnSummarizer(
+            agg_fns={}, agg_quantiles=[], include_table_summary_metrics=False
+        )
         logging.warning(
             f"loading xgboost model from {self.config.model_path};"
             "if a segfault occurs try importing xgboost as early as possible"

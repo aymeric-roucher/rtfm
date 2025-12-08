@@ -5,7 +5,13 @@ from dataclasses import dataclass, field
 from typing import Union, Dict, Optional, List, Any, Set
 
 import yaml
-from tableshift.core.features import FeatureList
+
+try:
+    from tableshift.core.features import FeatureList
+    _TABLESHIFT_AVAILABLE = True
+except Exception:
+    FeatureList = None  # type: ignore
+    _TABLESHIFT_AVAILABLE = False
 from tqdm import tqdm
 from transformers import PreTrainedTokenizer
 
@@ -58,6 +64,10 @@ class TLMConfig:
     def from_yaml(
         cls, yaml_file: str, required_fields=("prefix", "suffix", "labels_mapping")
     ):
+        if not _TABLESHIFT_AVAILABLE:
+            raise ImportError(
+                "tableshift is not installed. Install tableshift to load task configs from YAML."
+            )
         if not os.path.exists(yaml_file):
             raise ValueError(f"yaml file {yaml_file} does not exist.")
         with open(yaml_file, "r") as f:
@@ -73,6 +83,10 @@ class TLMConfig:
         return cls(**config)
 
     def to_yaml(self, filepath: str):
+        if not _TABLESHIFT_AVAILABLE:
+            raise ImportError(
+                "tableshift is not installed. Install tableshift to write task configs to YAML."
+            )
         with open(filepath, "w") as outfile:
             yaml.dump(self.__dict__, outfile, default_flow_style=False)
         return
@@ -159,19 +173,20 @@ def make_config_registry() -> Dict[str, TLMConfig]:
 
     # For user-provided configs, we use the directory path, relative to
     # USER_CONFIG_DIR, as the task name.
-    for yaml_path, dir_path in tqdm(USER_YAML_AND_DIR, desc="read user yaml files"):
-        key = os.path.relpath(os.path.dirname(yaml_path), dir_path)
-        try:
-            configs_dict[key] = TLMConfig.from_yaml(yaml_path)
-        except Exception as e:
-            logging.error(
-                f"exception reading yaml file: {e}; make sure the following is used "
-                "to generate the yaml file to avoid styling issues:"
-                """ 
+    if _TABLESHIFT_AVAILABLE:
+        for yaml_path, dir_path in tqdm(USER_YAML_AND_DIR, desc="read user yaml files"):
+            key = os.path.relpath(os.path.dirname(yaml_path), dir_path)
+            try:
+                configs_dict[key] = TLMConfig.from_yaml(yaml_path)
+            except Exception as e:
+                logging.error(
+                    f"exception reading yaml file: {e}; make sure the following is used "
+                    "to generate the yaml file to avoid styling issues:"
+                    """ 
         with open('data.yml', 'w') as outfile:
             yaml.dump(data, outfile, default_flow_style=False)
                           """
-            )
+                )
 
     return configs_dict
 

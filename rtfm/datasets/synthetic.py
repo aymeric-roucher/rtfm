@@ -4,8 +4,24 @@ from typing import Dict
 import numpy as np
 import pandas as pd
 from sklearn import datasets
-from tableshift.core.data_source import OfflineDataSource
-from tableshift.core.features import FeatureList, Feature
+
+try:
+    from tableshift.core.data_source import OfflineDataSource
+    from tableshift.core.features import FeatureList, Feature
+    _TABLESHIFT_AVAILABLE = True
+except Exception:
+    OfflineDataSource = object  # type: ignore
+    _TABLESHIFT_AVAILABLE = False
+    # Minimal stand-ins to keep synthetic configs available without tableshift.
+    class Feature:
+        def __init__(self, name, dtype, is_target=False):
+            self.name = name
+            self.dtype = dtype
+            self.is_target = is_target
+
+    class FeatureList:
+        def __init__(self, features):
+            self.features = features
 
 n_samples = 100_000
 seed = 30

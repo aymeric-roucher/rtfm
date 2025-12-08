@@ -16,10 +16,22 @@ import torch.distributed.fsdp as FSDP
 import transformers
 from accelerate.utils import is_xpu_available
 from botocore.exceptions import ClientError
-from llama_recipes.model_checkpointing.checkpoint_handler import (
-    fullstate_save_policy,
-)
-from llama_recipes.utils.memory_utils import MemoryTrace
+try:
+    from llama_recipes.model_checkpointing.checkpoint_handler import (
+        fullstate_save_policy,
+    )
+    from llama_recipes.utils.memory_utils import MemoryTrace
+    _LLAMA_RECIPES_AVAILABLE = True
+except Exception:
+    _LLAMA_RECIPES_AVAILABLE = False
+
+    def fullstate_save_policy(*args, **kwargs):
+        return None
+
+    class MemoryTrace:
+        def __enter__(self): return self
+        def __exit__(self, exc_type, exc_val, exc_tb): return False
+
 from safetensors import safe_open
 from torch.distributed.fsdp import FullyShardedDataParallel as FSDP
 from torch.distributed.fsdp import (

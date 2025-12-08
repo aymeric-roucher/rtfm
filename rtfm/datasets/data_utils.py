@@ -8,7 +8,15 @@ import pandas as pd
 from pandas import DataFrame
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import QuantileTransformer, StandardScaler
-from tableshift.core.features import get_numeric_columns
+
+try:
+    from tableshift.core.features import get_numeric_columns
+    _TABLESHIFT_AVAILABLE = True
+except ImportError:
+    _TABLESHIFT_AVAILABLE = False
+    # Fallback: approximate numeric column detection using pandas dtypes.
+    def get_numeric_columns(df):
+        return list(df.select_dtypes(include=[np.number]).columns)
 
 from rtfm.arguments import DataArguments
 

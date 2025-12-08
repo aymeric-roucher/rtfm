@@ -8,34 +8,54 @@ import os
 from typing import Optional
 
 import pandas as pd
-from tableshift.configs.experiment_config import ExperimentConfig
-from tableshift.configs.experiment_defaults import (
-    DEFAULT_ID_VAL_SIZE,
-    DEFAULT_RANDOM_STATE,
-    DEFAULT_ID_TEST_SIZE,
-)
-from tableshift.core import (
-    RandomSplitter,
-    PreprocessorConfig,
-    DatasetConfig,
-    TabularDataset,
-)
-from tableshift.core.data_source import (
-    OfflineDataSource,
-)
-from tableshift.core.features import FeatureList
-from tableshift.core.tabular_dataset import Dataset
-from tableshift.core.tasks import TaskConfig, _TASK_REGISTRY as TABLESHIFT_TASK_REGISTRY
 
-DEFAULT_SPLITTER = RandomSplitter(
-    val_size=DEFAULT_ID_VAL_SIZE,
-    random_state=DEFAULT_RANDOM_STATE,
-    test_size=DEFAULT_ID_TEST_SIZE,
-)
+try:
+    from tableshift.configs.experiment_config import ExperimentConfig
+    from tableshift.configs.experiment_defaults import (
+        DEFAULT_ID_VAL_SIZE,
+        DEFAULT_RANDOM_STATE,
+        DEFAULT_ID_TEST_SIZE,
+    )
+    from tableshift.core import (
+        RandomSplitter,
+        PreprocessorConfig,
+        DatasetConfig,
+        TabularDataset,
+    )
+    from tableshift.core.data_source import (
+        OfflineDataSource,
+    )
+    from tableshift.core.features import FeatureList
+    from tableshift.core.tabular_dataset import Dataset
+    from tableshift.core.tasks import TaskConfig, _TASK_REGISTRY as TABLESHIFT_TASK_REGISTRY
+
+    _TABLESHIFT_AVAILABLE = True
+except ImportError:
+    # tableshift is optional; these are only needed for raw dataset fetching.
+    ExperimentConfig = object  # type: ignore
+    DEFAULT_ID_VAL_SIZE = DEFAULT_RANDOM_STATE = DEFAULT_ID_TEST_SIZE = None  # type: ignore
+    RandomSplitter = PreprocessorConfig = DatasetConfig = TabularDataset = object  # type: ignore
+    OfflineDataSource = FeatureList = Dataset = TaskConfig = object  # type: ignore
+    TABLESHIFT_TASK_REGISTRY = {}
+    _TABLESHIFT_AVAILABLE = False
+
+if _TABLESHIFT_AVAILABLE:
+    DEFAULT_SPLITTER = RandomSplitter(
+        val_size=DEFAULT_ID_VAL_SIZE,
+        random_state=DEFAULT_RANDOM_STATE,
+        test_size=DEFAULT_ID_TEST_SIZE,
+    )
+else:
+    DEFAULT_SPLITTER = None
 
 
 def make_default_config():
     """Construct a default ExperimentConfig for any experiments that do not require special configuration."""
+    if not _TABLESHIFT_AVAILABLE:
+        raise ImportError(
+            "tableshift is not installed. Install tableshift to fetch raw datasets, "
+            "or train with preserialized WebDataset shards instead."
+        )
     return ExperimentConfig(
         splitter=DEFAULT_SPLITTER,
         grouper=None,
@@ -54,6 +74,10 @@ class AutoDataSource(OfflineDataSource):
         extension: str = "csv",
         **kwargs,
     ):
+        if not _TABLESHIFT_AVAILABLE:
+            raise ImportError(
+                "tableshift is not installed. Install tableshift to fetch raw datasets."
+            )
         self.name_or_path = name_or_path
         if not extension.startswith("."):
             extension = "." + extension
@@ -105,6 +129,11 @@ def fetch_dataset_with_default_configs(
     initialize_data: bool = True,
     **kwargs,
 ) -> Dataset:
+    if not _TABLESHIFT_AVAILABLE:
+        raise ImportError(
+            "tableshift is not installed. Install tableshift to fetch raw datasets, "
+            "or use preserialized data."
+        )
     """Get a dataset with the default configuration.
 
     This function is intended to "just get the data" for a given dataset name.
@@ -160,6 +189,11 @@ def fetch_dataset_from_configs(
     initialize_data=True,
     **kwargs,
 ) -> Dataset:
+    if not _TABLESHIFT_AVAILABLE:
+        raise ImportError(
+            "tableshift is not installed. Install tableshift to fetch raw datasets, "
+            "or use preserialized data."
+        )
     """Fetches a tableshift.core.tabular_dataset.Dataset from the configs.
 
     This function should be used when the intent is to modify a task (e.g. by changing the

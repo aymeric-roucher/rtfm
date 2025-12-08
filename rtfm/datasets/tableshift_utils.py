@@ -1,7 +1,13 @@
 import json
 
-from tableshift.core import PreprocessorConfig
-from tableshift.core.tabular_dataset import Dataset
+try:
+    from tableshift.core import PreprocessorConfig
+    from tableshift.core.tabular_dataset import Dataset
+
+    _TABLESHIFT_AVAILABLE = True
+except ImportError:
+    PreprocessorConfig = Dataset = object  # type: ignore
+    _TABLESHIFT_AVAILABLE = False
 
 from rtfm.arguments import (
     DataArguments,
@@ -12,6 +18,10 @@ from rtfm.arguments import (
 
 def get_dataset_info(dset: Dataset) -> str:
     """Get the string representation of dataset info."""
+    if not _TABLESHIFT_AVAILABLE:
+        raise ImportError(
+            "tableshift is not installed. Install tableshift to fetch raw datasets."
+        )
     ds_info = dset._get_info()
     ds_info["task"] = dset.name
     return json.dumps(ds_info)
@@ -34,6 +44,11 @@ NO_DROPNA_EXPERIMENTS = [
 def fetch_preprocessor_config_from_data_args(
     data_args: DataArguments, experiment: str
 ) -> PreprocessorConfig:
+    if not _TABLESHIFT_AVAILABLE:
+        raise ImportError(
+            "tableshift is not installed. Install tableshift to fetch raw datasets, "
+            "or train with preserialized WebDataset shards."
+        )
     numeric_value_handling = NUM_FEATURE_TRANSFORM_MAPPING[
         data_args.feature_value_handling
     ]
