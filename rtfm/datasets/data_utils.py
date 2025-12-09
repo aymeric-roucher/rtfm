@@ -92,12 +92,11 @@ def make_object_json_serializable(x) -> Union[str, List[str]]:
 def is_date_column(ser: pd.Series) -> bool:
     """More robust check of whether a column contains a date.
 
-    Specifically, pd.core.dtypes.common.is_datetime_or_timedelta_dtype does not handle
-    datetime64tz types (it returns False) so we explicitly include that check."""
+    Checks for datetime64, timedelta64, and timezone-aware datetime types."""
     return (
-        pd.core.dtypes.common.is_datetime_or_timedelta_dtype(ser)
-        or pd.core.dtypes.common.is_datetime64_dtype(ser)
-        or pd.core.dtypes.common.is_datetime64tz_dtype(ser)
+        pd.api.types.is_datetime64_any_dtype(ser)
+        or pd.api.types.is_timedelta64_dtype(ser)
+        or pd.api.types.is_datetime64tz_dtype(ser)
     )
 
 

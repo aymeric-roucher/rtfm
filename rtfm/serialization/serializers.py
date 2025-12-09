@@ -813,7 +813,17 @@ class JsonSerializer(BaseDictBasedSerializer):
             task_context_text=task_context_text,
             meta=meta,
         )
-        return json.dumps(example_dict)
+
+        def default_handler(obj):
+            """Handle non-serializable objects."""
+            import numpy as np
+            if isinstance(obj, np.ndarray):
+                return obj.tolist()
+            if isinstance(obj, (np.integer, np.floating)):
+                return obj.item()
+            raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
+
+        return json.dumps(example_dict, default=default_handler)
 
 
 def get_serializer(config: SerializerConfig, **kwargs) -> RowSerializer:

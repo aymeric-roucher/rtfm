@@ -12,6 +12,7 @@ python -m rtfm.pipelines.serialize_interleave_and_shuffle \
     --chunk_size 256 \
     --max_tables 100_000
 """
+
 import glob
 import json
 import logging
@@ -25,6 +26,10 @@ from typing import Sequence
 import pandas as pd
 import ray
 import webdataset as wds
+from sklearn.model_selection import train_test_split
+from tqdm import tqdm
+from transformers import HfArgumentParser
+
 from rtfm.arguments import DataArguments
 from rtfm.configs import SerializerConfig, TargetConfig
 from rtfm.data import (
@@ -32,11 +37,8 @@ from rtfm.data import (
     example_map_fn,
 )
 from rtfm.datasets.target_selection import NoTargetCandidatesError
-from rtfm.pipelines.pipeline_utils import Resharder, PipelineConfig
+from rtfm.pipelines.pipeline_utils import PipelineConfig, Resharder
 from rtfm.serialization.serializers import get_serializer
-from sklearn.model_selection import train_test_split
-from tqdm import tqdm
-from transformers import HfArgumentParser
 
 
 def process_file(
@@ -74,11 +76,11 @@ def process_file(
         cfg=None,
     )
 
-    for record in records:
+    for record in tqdm(records, desc="Serializing records", unit="record"):
         mapped = _map_fn(record)
         # Do not keep examples that would not fit in the model's context
         if len(mapped["text"]) > int(model_max_len_tokens * appx_chars_per_token):
-            logging.warning(
+            logging.info(
                 f"dropping too-long sample with text len {len(mapped['text'])}"
             )
             continue

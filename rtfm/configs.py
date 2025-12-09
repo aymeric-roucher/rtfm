@@ -117,7 +117,7 @@ class TargetConfig:
      during evaluation).
     """
 
-    target_selector_cls: Literal["T4TargetSelector", "ModelBasedTargetSelector"]
+    target_selector_cls: Literal["T4TargetSelector", "ModelBasedTargetSelector"] = "T4TargetSelector"
 
     # Configuration options for ModelBasedTargetSelector
     model_path: str = os.path.join(

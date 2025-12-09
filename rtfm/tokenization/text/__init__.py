@@ -14,14 +14,14 @@ def fetch_tokenizer(
     pretrained_model_name_or_path: str,
     model_max_length: int,
     use_fast_tokenizer: bool,
-    use_auth_token=None,
+    token=None,
 ):
     tokenizer_kwargs = {
         "pretrained_model_name_or_path": pretrained_model_name_or_path,
         "cache_dir": None,
         "model_max_length": model_max_length,
         "padding_side": "right",
-        "use_auth_token": use_auth_token,
+        "token": token,
         "use_fast": use_fast_tokenizer,
     }
 
@@ -44,7 +44,7 @@ def prepare_tokenizer(
             pretrained_model_name_or_path="meta-llama/Llama-2-7b-hf",
             model_max_length=model_max_length,
             use_fast_tokenizer=use_fast_tokenizer,
-            use_auth_token=fetch_auth_token(),
+            token=fetch_auth_token(),
         )
 
     else:

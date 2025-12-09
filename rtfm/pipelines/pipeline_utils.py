@@ -76,8 +76,8 @@ class Resharder:
 
 @dataclass
 class PipelineConfig:
-    input_dir: str
-    output_dir: str
+    input_dir: str = "data/t4-local/extracted"
+    output_dir: str = "data/t4-local/wds"
     max_tables: Optional[int] = None
     train_frac: float = 0.975
     split_random_seed = 42
@@ -85,3 +85,4 @@ class PipelineConfig:
     output_file_prefix: Optional[str] = None
     chunk_size: int = 64
     target_shard_size_mb: int = 500
+    enable_resharding: bool = False

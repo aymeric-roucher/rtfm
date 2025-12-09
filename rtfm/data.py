@@ -5,7 +5,7 @@ import random
 from collections import defaultdict
 from dataclasses import dataclass
 from functools import partial
-from typing import Dict, Sequence, List, Union, Optional, Any, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple, Union
 
 import datasets
 import numpy as np
@@ -14,30 +14,31 @@ import scipy
 import torch
 import transformers
 import webdataset as wds
-from datasets import load_dataset, IterableDataset, Dataset
+from datasets import Dataset, IterableDataset, load_dataset
+
 from rtfm.arguments import DataArguments
-from rtfm.configs import TrainConfig, TargetConfig
+from rtfm.configs import TargetConfig, TrainConfig
 from rtfm.datasets import get_task_dataset
 from rtfm.datasets.data_utils import (
-    make_object_json_serializable,
-    df_to_records,
     build_formatted_df,
+    df_to_records,
+    make_object_json_serializable,
 )
 from rtfm.datasets.tableshift_utils import (
     fetch_preprocessor_config_from_data_args,
     get_dataset_info,
 )
 from rtfm.datasets.target_selection import (
+    NoTargetCandidatesError,
     get_target_selector,
     is_numeric,
-    NoTargetCandidatesError,
 )
 from rtfm.serialization.serialization_utils import discretize_continuous_column
 from rtfm.serialization.serializers import RowSerializer
-from rtfm.special_tokens import IGNORE_INDEX, QA_SEP_TOKEN, EOC_TOKEN
+from rtfm.special_tokens import EOC_TOKEN, IGNORE_INDEX, QA_SEP_TOKEN
 from rtfm.task_config import (
-    get_tlm_config,
     TLMConfig,
+    get_tlm_config,
 )
 
 
@@ -99,9 +100,9 @@ def example_ids_to_attention_mask(example_ids: List[int]) -> np.ndarray:
 
     The output is a np.array of type bool, with lower-block-triangular entries.
     """
-    assert isinstance(
-        example_ids, list
-    ), f"expected list of example_ids, got type {type(example_ids)}"
+    assert isinstance(example_ids, list), (
+        f"expected list of example_ids, got type {type(example_ids)}"
+    )
     max_example_id = max(example_ids)
     example_ids = torch.Tensor(example_ids)
     block_sizes = [(example_ids == i).sum() for i in range(max_example_id + 1)]
@@ -173,7 +174,7 @@ class DataCollatorForSupervisedDataset(object):
 
 
 def make_hf_name(name: str) -> str:
-    for char in "<>:/\|?*":
+    for char in "<>:/\\|?*":
         if char in name:
             name = name.replace(char, "_")
     return name
@@ -240,11 +241,23 @@ def build_formatted_df_from_file(file, target_config: TargetConfig) -> pd.DataFr
             "task": file,
         }
         try:
-            info.append(json.dumps(row_info))
+
+            def numpy_handler(obj):
+                """Handle numpy types in JSON serialization."""
+                if isinstance(obj, np.ndarray):
+                    return obj.tolist()
+                if isinstance(obj, (np.integer, np.floating)):
+                    return obj.item()
+                if isinstance(obj, (np.str_, np.bytes_)):
+                    return str(obj)
+                raise TypeError(
+                    f"Object of type {type(obj).__name__} is not JSON serializable"
+                )
+
+            info.append(json.dumps(row_info, default=numpy_handler))
         except TypeError as te:
             logging.warning(
-                f"got TypeError processing dataset {file}: {te}"
-                f"row_info is {row_info}"
+                f"got TypeError processing dataset {file}: {te}row_info is {row_info}"
             )
             raise DatasetTypeError(str(te))
 
@@ -323,7 +336,7 @@ def example_map_fn(
     task_context = cfg.get_task_context() if data_args.use_task_context else ""
 
     if data_args.use_task_context:
-        assert task_context, f"expected task context but got none!"
+        assert task_context, "expected task context but got none!"
 
     prefix = cfg.get_prefix() if serializer.config.use_prefix else ""
     suffix = cfg.get_suffix() if serializer.config.use_suffix else ""
@@ -502,14 +515,14 @@ def table_id_from_key(k: str) -> str:
 
 
 def ids_and_lens_from_batch(
-    batch: Dict[str, List[Union[torch.Tensor, str]]]
+    batch: Dict[str, List[Union[torch.Tensor, str]]],
 ) -> List[List[int]]:
     """Return a nested list where the ith element is [i, len(example_i)]."""
     return [[i, len(ids)] for i, ids in enumerate(batch["input_ids"])]
 
 
 def merge_batch_samples_by_key(
-    batch: Dict[str, List[Union[torch.Tensor, str]]]
+    batch: Dict[str, List[Union[torch.Tensor, str]]],
 ) -> List[List[int]]:
     """When samples are from the same source table, combine a sample with the one preceding it.
 
@@ -572,14 +585,14 @@ def pack_samples(
 
     The resulting dict has keys ['input_ids', 'labels', 'example_ids', 'position_ids'].
     """
-    assert len(batch["input_ids"]) == len(
-        batch["labels"]
-    ), f"expected equal-length inputs and labels, got {len(batch['input_ids'])} and {len(batch['labels'])}"
+    assert len(batch["input_ids"]) == len(batch["labels"]), (
+        f"expected equal-length inputs and labels, got {len(batch['input_ids'])} and {len(batch['labels'])}"
+    )
 
     if trim_extra_bos_tokens and len(batch["input_ids"]) > 1:
-        assert (
-            bos_token_id is not None
-        ), "bos_token_id is required to trim extra bos tokens."
+        assert bos_token_id is not None, (
+            "bos_token_id is required to trim extra bos tokens."
+        )
         for i in range(1, len(batch["input_ids"])):
             if batch["input_ids"][i][0] == bos_token_id:
                 batch["input_ids"][i] = batch["input_ids"][i][1:]
@@ -669,9 +682,9 @@ def make_few_shot_from_labeled_batch(
     into a few-shot example, where each dictionary in the returned list
     ends with a different sample in the batch as the target.
     """
-    assert len(batch["input_ids"]) == len(
-        batch["labels"]
-    ), f"expected equal-length inputs and labels, got {len(batch['input_ids'])} and {len(batch['labels'])}"
+    assert len(batch["input_ids"]) == len(batch["labels"]), (
+        f"expected equal-length inputs and labels, got {len(batch['input_ids'])} and {len(batch['labels'])}"
+    )
     batch_size = len(batch["input_ids"])
 
     results = defaultdict(list)
@@ -755,7 +768,12 @@ def tokenize_and_preprocess_ds_dict(
         if data_arguments.num_shots:
             max_samples = max_samples * (data_arguments.num_shots + 1)
         for split in ds_dict.keys():
-            if len(ds_dict[split]) > max_samples:
+            try:
+                ds_len = len(ds_dict[split])
+            except TypeError:
+                # IterableDataset has no len(); skip max_samples enforcement for streaming sources.
+                continue
+            if ds_len > max_samples:
                 ds_dict[split] = ds_dict[split].select(range(max_samples))
 
     ds_dict = {
@@ -921,7 +939,7 @@ def load_and_tokenize_preserialized_wds(
     del max_samples
 
     if urls[0].startswith("s3://"):
-        logging.warning(f"s3 file urls detected; attempting to pipe data from s3")
+        logging.warning("s3 file urls detected; attempting to pipe data from s3")
         urls = [f"pipe:aws s3 cp {url} -" for url in urls]
 
     def _extract_json(sample) -> Dict[str, str]:
@@ -1082,12 +1100,17 @@ def load_and_tokenize_preserialized_dataset(
     shuffle=None,
     shuffle_buffer_size: Optional[int] = 10_000,
     shuffle_random_seed=42,
+    require_full_context_size: bool = True,
 ) -> Dict[str, Union[Dataset, IterableDataset]]:
     """Load a preserialized tabular dataset, tokenize and preprocess it.
 
     Interleaves datasets from all tasks in task_names.
     """
-    if task_names[0].endswith(".wds") or task_names[0].endswith(".tar"):
+    if (
+        task_names[0].endswith(".wds")
+        or task_names[0].endswith(".tar")
+        or task_names[0].endswith(".zip")
+    ):
         return load_and_tokenize_preserialized_wds(
             tokenizer=tokenizer,
             urls=task_names,
@@ -1099,6 +1122,7 @@ def load_and_tokenize_preserialized_dataset(
             shuffle_before_packing=shuffle,
             shuffle_buffer_size=shuffle_buffer_size,
             shuffle_random_seed=shuffle_random_seed,
+            require_full_context_size=require_full_context_size,
         )
     else:
         return load_and_tokenize_preserialized_hf_dataset(

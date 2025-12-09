@@ -46,7 +46,7 @@ class T4TargetSelector(TargetSelector):
     """Random selection from candidates meeting a set of heuristic criteria."""
 
     def __call__(
-        self, df: pd.DataFrame, log_level: str = "warning"
+        self, df: pd.DataFrame, log_level: str = "info"
     ) -> Tuple[str, Sequence[str]]:
         # Iterate over the columns in the dataframe, and if it is a valid
         # candidate for being a target (more than one distinct value)
@@ -112,7 +112,7 @@ def is_valid_target_column(
     config: TargetConfig,
     ser: pd.Series,
     unique_values_serializable: Sequence[str],
-    log_level="warning",
+    log_level="info",
 ) -> bool:
     """Check whether a target column is valid based on data_args."""
     log_fn = eval(f"logging.{log_level}")
@@ -202,7 +202,7 @@ class ModelBasedTargetSelector(TargetSelector):
         return self.summarizer(series)
 
     def __call__(
-        self, df: pd.DataFrame, log_level: str = "warning"
+        self, df: pd.DataFrame, log_level: str = "info"
     ) -> Tuple[str, Sequence[str]]:
         """Select a target column from the columns in df.
 
